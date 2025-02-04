@@ -1,61 +1,94 @@
-# src/preprocess_data.py
 import pandas as pd
-import numpy as np
+import os
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, RobustScaler
 
-# Load the dataset
-def load_data():
-    data = pd.read_csv('data/creditcardfraud/creditcard.csv')
-    print("Dataset loaded successfully!")
-    print(f"Shape of the dataset: {data.shape}")
-    return data
+data_dir = "data/creditcardfraud"
+csv_file_path = os.path.join(data_dir, "creditcard.csv")
 
-# Perform exploratory data analysis (EDA)
-def perform_eda(data):
-    print("\nExploratory Data Analysis (EDA):")
-    
-    # Check for missing values
-    print("\nMissing values:\n", data.isnull().sum())
-    
-    # Class distribution
-    print("\nClass distribution:\n", data['Class'].value_counts())
-    
-    # Plot class distribution
+try:
+    df = pd.read_csv(csv_file_path)
+    print("Data loaded successfully.")
+    print(f"Shape of the dataset: {df.shape}")
+    print(df.head())
+
+    # 1. Basic Statistics for Numerical Features:
+    print("\nDescriptive Statistics for Numerical Features:")
+    print(df.describe())
+
+    # 2. Information about Data Types and Missing Values:
+    print("\nData Types and Missing Values:")
+    print(df.info())
+
+    # 3. Class Distribution:
+    print("\nClass Distribution:")
+    class_counts = df['Class'].value_counts()
+    print(class_counts)
+
+    # 4. Visualize Class Distribution:
     plt.figure(figsize=(8, 6))
-    sns.countplot(x='Class', data=data)
-    plt.title('Class Distribution (0: Non-Fraud, 1: Fraud)')
-    plt.savefig('../reports/class_distribution.png')
+    sns.countplot(x='Class', data=df)
+    plt.title('Class Distribution')
+    plt.xlabel('Class (0: Non-Fraudulent, 1: Fraudulent)')
+    plt.ylabel('Number of Transactions')
+    plt.xticks([0, 1], ['Non-Fraudulent', 'Fraudulent'])
+
+    reports_dir = "reports"
+    os.makedirs(reports_dir, exist_ok=True)
+    file_path = os.path.join(reports_dir, 'class_distribution.png')
+    print(f"Saving plot to: {file_path}")
+    plt.savefig(file_path)
     plt.close()
-    
-    # Summary statistics
-    print("\nSummary statistics:\n", data.describe())
 
-# Preprocess the data
-def preprocess_data(data):
-    # Separate features and target
-    X = data.drop('Class', axis=1)
-    y = data['Class']
-    
-    # Split the data into training and testing sets
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-    
-    # Save the processed data
-    X_train.to_csv('../data/X_train.csv', index=False)
-    X_test.to_csv('../data/X_test.csv', index=False)
-    y_train.to_csv('../data/y_train.csv', index=False)
-    y_test.to_csv('../data/y_test.csv', index=False)
-    
-    print("\nData preprocessing completed!")
-    print(f"Training data shape: {X_train.shape}")
-    print(f"Testing data shape: {X_test.shape}")
+    plt.show()
 
-# Main function
-def main():
-    data = load_data()
-    perform_eda(data)
-    preprocess_data(data)
+    # 5. Check for Missing Values:
+    print("\nMissing Values:")
+    print(df.isnull().sum())
 
-if __name__ == "__main__":
-    main()
+    # 6. Distribution of Transaction Amount and Time:
+    fig, ax = plt.subplots(1, 2, figsize=(18, 4))
+
+    amount_val = df['Amount'].values
+    time_val = df['Time'].values
+
+    sns.distplot(amount_val, ax=ax[0], color='r')
+    ax[0].set_title('Distribution of Transaction Amount', fontsize=14)
+    ax[0].set_xlim([min(amount_val), max(amount_val)])
+
+    sns.distplot(time_val, ax=ax[1], color='b')
+    ax[1].set_title('Distribution of Transaction Time', fontsize=14)
+    ax[1].set_xlim([min(time_val), max(time_val)])
+
+    file_path = os.path.join(reports_dir, 'amount_time_distribution.png')
+    print(f"Saving plot to: {file_path}")
+    fig.savefig(file_path)
+    plt.close(fig)
+
+    plt.show()
+
+    # 7. Scaling Amount and Time:
+    std_scaler = StandardScaler()
+    rob_scaler = RobustScaler()
+
+    df['scaled_amount'] = rob_scaler.fit_transform(df['Amount'].values.reshape(-1, 1))
+    df['scaled_time'] = rob_scaler.fit_transform(df['Time'].values.reshape(-1, 1))
+
+    df.drop(['Time', 'Amount'], axis=1, inplace=True)
+
+    scaled_amount = df['scaled_amount']
+    scaled_time = df['scaled_time']
+    df.drop(['scaled_amount', 'scaled_time'], axis=1, inplace=True)
+    df.insert(0, 'scaled_amount', scaled_amount)
+    df.insert(1, 'scaled_time', scaled_time)
+
+    print("\nAmount and Time Scaled:")
+    print(df.head())  # Print the first few rows after scaling
+
+except FileNotFoundError:
+    print(f"Error: CSV file not found at {csv_file_path}. Make sure you've run the download script.")
+    exit(1)
+except Exception as e:
+    print(f"An error occurred while loading the data: {e}")
+    exit(1)
